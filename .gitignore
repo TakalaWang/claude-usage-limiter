@@ -1,6 +1,7 @@
 node_modules/
-bin/
-plugin/bin/
 dist/
 *.log
 .DS_Store
+# plugin/bin/ is the distributed artifact and IS committed — marketplace
+# installs copy the repo as-is, so the compiled JS must live in git.
+# Run `pnpm run build` before committing source changes.
