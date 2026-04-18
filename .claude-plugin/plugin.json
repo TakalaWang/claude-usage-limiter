@@ -1,0 +1,34 @@
+{
+  "name": "claude-usage-limiter",
+  "version": "0.0.1",
+  "description": "Enforces per-project weekly Claude Code usage limits (% of account quota or USD budget).",
+  "author": {
+    "name": "Takala Wang"
+  },
+  "repository": "https://github.com/TakalaWang/claude-usage-limiter",
+  "license": "MIT",
+  "keywords": ["usage", "limit", "budget", "quota"],
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/bin/hooks/user-prompt-submit.js"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/bin/hooks/pre-tool-use.js"
+          }
+        ]
+      }
+    ]
+  }
+}
