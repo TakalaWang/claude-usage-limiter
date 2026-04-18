@@ -91,9 +91,13 @@ export async function main(): Promise<void> {
 
     // Per-project usage (only meaningful if this project is configured).
     const verdict = checkLimit(cwd);
-    if (verdict.limited && verdict.limitPercent > 0 && !verdict.cacheStale) {
+    if (verdict.limited && verdict.kind === "percent" && verdict.limitPercent > 0 && !verdict.cacheStale) {
       const projColor = color((verdict.usedPercent / verdict.limitPercent) * 100);
       const projStr = `${projColor}${verdict.usedPercent.toFixed(1)}%${RESET} / ${verdict.limitPercent}%`;
+      process.stdout.write(`${label}: ${projStr} | acct: ${acctStr}`);
+    } else if (verdict.limited && verdict.kind === "usd" && verdict.limitUsd > 0) {
+      const projColor = color((verdict.usedUsd / verdict.limitUsd) * 100);
+      const projStr = `${projColor}$${verdict.usedUsd.toFixed(2)}${RESET} / $${verdict.limitUsd.toFixed(2)}`;
       process.stdout.write(`${label}: ${projStr} | acct: ${acctStr}`);
     } else {
       process.stdout.write(`${label} | acct: ${acctStr}`);

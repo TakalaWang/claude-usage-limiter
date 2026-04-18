@@ -62,8 +62,8 @@ test("checkLimit: overshoot → block", () => {
     config,
     cache,
     now,
-    scanProject: () => ({ tokens: 600_000 }),
-    scanAll: () => ({ total: { tokens: 1_000_000 } }),
+    scanProject: () => ({ tokens: 600_000, costUsd: 0, messages: 1 }),
+    scanAll: () => ({ total: { tokens: 1_000_000, costUsd: 0, messages: 1 } }),
   });
   assert.equal(v.limited, true);
   assert.equal(v.overshoot, true);
@@ -86,8 +86,8 @@ test("checkLimit: under limit → allow", () => {
     config,
     cache,
     now,
-    scanProject: () => ({ tokens: 100_000 }),
-    scanAll: () => ({ total: { tokens: 1_000_000 } }),
+    scanProject: () => ({ tokens: 100_000, costUsd: 0, messages: 1 }),
+    scanAll: () => ({ total: { tokens: 1_000_000, costUsd: 0, messages: 1 } }),
   });
   assert.equal(v.limited, true);
   assert.equal(v.overshoot, false);
@@ -107,4 +107,65 @@ test("parseConfig: rejects non-numeric weeklyPercent", () => {
 
 test("parseConfig: rejects wrong version", () => {
   assert.throws(() => parseConfig({ version: 2, projects: {} }), /version must be 1/);
+});
+
+test("parseConfig: rejects project with BOTH weeklyPercent and weeklyBudgetUSD", () => {
+  assert.throws(
+    () =>
+      parseConfig({
+        version: 1,
+        projects: { "/x": { weeklyPercent: 20, weeklyBudgetUSD: 50 } },
+      }),
+    /both weeklyPercent and weeklyBudgetUSD/,
+  );
+});
+
+test("parseConfig: accepts weeklyBudgetUSD alone", () => {
+  const cfg = parseConfig({
+    version: 1,
+    projects: { "/x": { weeklyBudgetUSD: 50 } },
+  });
+  assert.equal(cfg.projects["/x"].weeklyBudgetUSD, 50);
+  assert.equal(cfg.projects["/x"].weeklyPercent, undefined);
+});
+
+test("parseConfig: rejects non-positive weeklyBudgetUSD", () => {
+  assert.throws(
+    () => parseConfig({ version: 1, projects: { "/x": { weeklyBudgetUSD: 0 } } }),
+    /must be > 0/,
+  );
+});
+
+test("checkLimit: USD overshoot → block", () => {
+  const config = parseConfig({
+    version: 1,
+    projects: { "/Users/takala/code/foo": { weeklyBudgetUSD: 50 } },
+  });
+  const v = checkLimit("/Users/takala/code/foo", {
+    config,
+    cache: null,
+    scanProject: () => ({ tokens: 0, costUsd: 75, messages: 10 }),
+    scanAll: () => ({ total: { tokens: 0, costUsd: 75, messages: 10 } }),
+  });
+  assert.equal(v.limited, true);
+  assert.equal(v.kind, "usd");
+  assert.equal(v.overshoot, true);
+  assert.equal(v.usedUsd, 75);
+  assert.equal(v.limitUsd, 50);
+  assert.match(v.reason, /\$50\.00 weekly budget/);
+});
+
+test("checkLimit: USD under → allow", () => {
+  const config = parseConfig({
+    version: 1,
+    projects: { "/Users/takala/code/foo": { weeklyBudgetUSD: 50 } },
+  });
+  const v = checkLimit("/Users/takala/code/foo", {
+    config,
+    cache: null,
+    scanProject: () => ({ tokens: 0, costUsd: 12.3, messages: 3 }),
+    scanAll: () => ({ total: { tokens: 0, costUsd: 12.3, messages: 3 } }),
+  });
+  assert.equal(v.kind, "usd");
+  assert.equal(v.overshoot, false);
 });

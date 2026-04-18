@@ -58,26 +58,33 @@ export function main(): void {
     if (!config || Object.keys(config.projects).length === 0) {
       out.push("");
       out.push(`${DIM}No projects configured. Edit ~/.claude/usage-limiter/config.json to add limits.${RESET}`);
-    } else if (!sevenDay || sevenDay.usedPercentage <= 0 || total.tokens <= 0) {
-      out.push("");
-      out.push(`${DIM}Not enough data yet to compute per-project %.${RESET}`);
-      out.push(`${DIM}Configured projects:${RESET}`);
-      for (const [cwd, limit] of Object.entries(config.projects)) {
-        out.push(`  ${cwd} — limit ${limit.weeklyPercent ?? "?"}%`);
-      }
     } else {
-      const accountPct = sevenDay.usedPercentage;
+      const accountPct = sevenDay?.usedPercentage ?? 0;
       out.push("");
       out.push(`${BOLD}Projects:${RESET}`);
       for (const [cwd, limit] of Object.entries(config.projects)) {
         const encoded = encodeCwd(cwd);
-        const proj = perProject[encoded] ?? { tokens: 0, messages: 0 };
-        const pct = total.tokens > 0 ? accountPct * (proj.tokens / total.tokens) : 0;
-        const limitPct = limit.weeklyPercent ?? 0;
-        const c = limitPct > 0 ? color((pct / limitPct) * 100) : DIM;
-        const bar = limitPct > 0 ? `${pct.toFixed(1)}% / ${limitPct}%` : `${pct.toFixed(1)}%`;
+        const proj = perProject[encoded] ?? { tokens: 0, costUsd: 0, messages: 0 };
         out.push(`  ${cwd}`);
-        out.push(`    ${c}${bar}${RESET}   (${proj.messages} assistant messages)`);
+        if (limit.weeklyBudgetUSD !== undefined) {
+          const limitUsd = limit.weeklyBudgetUSD;
+          const ratioPct = limitUsd > 0 ? (proj.costUsd / limitUsd) * 100 : 0;
+          const c = color(ratioPct);
+          out.push(
+            `    ${c}$${proj.costUsd.toFixed(2)} / $${limitUsd.toFixed(2)}${RESET}` +
+              `   (${proj.messages} assistant messages)`,
+          );
+        } else if (limit.weeklyPercent !== undefined) {
+          const limitPct = limit.weeklyPercent;
+          const pct = total.tokens > 0 && accountPct > 0
+            ? accountPct * (proj.tokens / total.tokens)
+            : 0;
+          const c = limitPct > 0 ? color((pct / limitPct) * 100) : DIM;
+          out.push(
+            `    ${c}${pct.toFixed(1)}% / ${limitPct}%${RESET}` +
+              `   ($${proj.costUsd.toFixed(2)}, ${proj.messages} assistant messages)`,
+          );
+        }
       }
     }
 

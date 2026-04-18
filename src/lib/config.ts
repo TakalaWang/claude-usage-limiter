@@ -1,11 +1,11 @@
 // Load and validate ~/.claude/usage-limiter/config.json.
-// v0.1 supports weeklyPercent only.
+// v0.2: each project picks EXACTLY ONE of weeklyPercent / weeklyBudgetUSD.
 import { readFileSync } from "node:fs";
 import { CONFIG_PATH } from "./paths.js";
 
 export interface ProjectLimit {
   weeklyPercent?: number;
-  // weeklyBudgetUSD reserved for v0.2
+  weeklyBudgetUSD?: number;
 }
 
 export interface UsageLimiterConfig {
@@ -25,8 +25,17 @@ export function parseConfig(raw: unknown): UsageLimiterConfig {
   const projects: Record<string, ProjectLimit> = {};
   for (const [key, value] of Object.entries(raw.projects)) {
     if (!isRecord(value)) throw new Error(`config: projects[${key}] must be an object`);
+
+    const hasPct = value.weeklyPercent !== undefined;
+    const hasUsd = value.weeklyBudgetUSD !== undefined;
+    if (hasPct && hasUsd) {
+      throw new Error(
+        `config: projects[${key}] sets both weeklyPercent and weeklyBudgetUSD — choose one`,
+      );
+    }
+
     const limit: ProjectLimit = {};
-    if (value.weeklyPercent !== undefined) {
+    if (hasPct) {
       if (typeof value.weeklyPercent !== "number" || !isFinite(value.weeklyPercent)) {
         throw new Error(`config: projects[${key}].weeklyPercent must be a number`);
       }
@@ -35,8 +44,17 @@ export function parseConfig(raw: unknown): UsageLimiterConfig {
       }
       limit.weeklyPercent = value.weeklyPercent;
     }
-    if (limit.weeklyPercent === undefined) {
-      // v0.1: no weeklyBudgetUSD support, skip unknown projects rather than error.
+    if (hasUsd) {
+      if (typeof value.weeklyBudgetUSD !== "number" || !isFinite(value.weeklyBudgetUSD)) {
+        throw new Error(`config: projects[${key}].weeklyBudgetUSD must be a number`);
+      }
+      if (value.weeklyBudgetUSD <= 0) {
+        throw new Error(`config: projects[${key}].weeklyBudgetUSD must be > 0`);
+      }
+      limit.weeklyBudgetUSD = value.weeklyBudgetUSD;
+    }
+    if (!hasPct && !hasUsd) {
+      // Neither set — project effectively unlimited, skip.
       continue;
     }
     projects[key] = limit;
