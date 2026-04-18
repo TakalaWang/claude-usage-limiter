@@ -49,7 +49,7 @@ That's it. On the next session start, a `SessionStart` hook silently
 patches `~/.claude/settings.json` to wire up the statusline (with a
 timestamped backup). If you already have a `statusLine` configured,
 the hook leaves it alone and tells you — run
-`/usage-limiter:install-statusline` to override.
+`/claude-usage-limiter:install-statusline` to override.
 
 ## Configure
 
@@ -82,11 +82,11 @@ different paths for the same repo, they count as different projects.
 
 ## Slash commands
 
-- `/usage-limiter:usage-status` — show account + per-project status this week.
-- `/usage-limiter:set <value>` — set the current project's cap without
+- `/claude-usage-limiter:status` — show account + per-project status this week.
+- `/claude-usage-limiter:set <value>` — set the current project's cap without
   leaving Claude Code. Accepts `20%`, `$50`, or `50usd`. Writes
   `config.json` atomically and keeps a `config.json.bak-<epoch>` backup.
-- `/usage-limiter:install-statusline` — patch `settings.json` with the plugin
+- `/claude-usage-limiter:install-statusline` — patch `settings.json` with the plugin
   statusline command.
 
 ## Statusline
