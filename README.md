@@ -1,55 +1,38 @@
 # claude-usage-limiter
 
-A Claude Code plugin that enforces **per-project weekly usage limits**. When a
-configured project exceeds its share of your weekly Claude Code quota — or a
-dollar budget you picked for it — new prompts and mid-turn tool calls are
-blocked until the week resets.
-
-## Why
+> Per-project weekly usage limits for Claude Code.
 
 Claude Code's built-in weekly limit is account-wide. If you want to cap how
 much of that quota a single side project can consume — "project A gets at most
-20%, project B gets at most \$50/week" — this plugin does it.
+20%, project B gets at most \$50/week" — this plugin does it. When a project
+hits its cap, new prompts and mid-turn tool calls are blocked until the week
+resets.
 
-## How it works
+```
+$ /claude-usage-limiter:status
+Claude Usage Limiter — weekly status
+Account: 41.2% / 100%   resets 2026-04-26 09:00 (3d 5h)
 
-1. **Statusline** reads Claude Code's `rate_limits` payload (Pro/Max
-   subscribers only) and caches the account-wide weekly usage percentage.
-2. **UserPromptSubmit hook** runs before every prompt: scans
-   `~/.claude/projects/<cwd>/*.jsonl` for the current project's token usage
-   this week, derives this project's share of the account's weekly quota or
-   its \$ cost, and blocks the turn if the configured limit is exceeded.
-3. **PreToolUse hook** catches mid-turn agentic overshoot. On a "refactor the
-   whole codebase" run, `UserPromptSubmit` alone won't stop a turn that goes
-   over mid-flight; `PreToolUse` gates each tool call and emits
-   `hookSpecificOutput.permissionDecision = "deny"` with a "DO NOT retry"
-   reason so the model ends the turn cleanly after 1–3 adapt cycles.
-
-Scans are incremental: per-file offsets live in
-`~/.claude/usage-limiter/scan-cache.json`, so a heavy-user JSONL dir stays
-under ~50 ms per hook even after it grows past 100 MB.
-
-See
-[`docs/plans/2026-04-19-claude-usage-limiter-design.md`](docs/plans/2026-04-19-claude-usage-limiter-design.md)
-for the design rationale and
-[`docs/plans/e2e-findings.md`](docs/plans/e2e-findings.md) for what the
-automated smoke test covers.
+Projects:
+  /Users/you/code/side-project
+    12.4% / 20%   ($7.32, 58 assistant messages)
+  /Users/you/code/work-repo
+    $42.10 / $50.00   (311 assistant messages)
+  /Users/you/code/experiments
+    25.3% / 20%   ⛔ OVER   ($14.91, 102 assistant messages)
+```
 
 ## Install
-
-Claude Code distributes plugins through marketplaces. Add this repo as a
-marketplace, then install the plugin from it:
 
 ```
 /plugin marketplace add TakalaWang/claude-usage-limiter
 /plugin install claude-usage-limiter@takalawang
 ```
 
-That's it. On the next session start, a `SessionStart` hook silently
-patches `~/.claude/settings.json` to wire up the statusline (with a
-timestamped backup). If you already have a `statusLine` configured,
-the hook leaves it alone and tells you — run
-`/claude-usage-limiter:install-statusline` to override.
+Restart Claude Code. On first session the plugin auto-patches
+`~/.claude/settings.json` to wire its statusline (with a timestamped backup);
+run `/claude-usage-limiter:install-statusline` manually if you'd rather
+override an existing one.
 
 ## Configure
 
@@ -65,42 +48,81 @@ Create `~/.claude/usage-limiter/config.json`:
 }
 ```
 
-- **Key** = the absolute path you open Claude Code at (same path shown in the
-  session title).
-- Each project picks **exactly one** of:
-  - `weeklyPercent` — cap on this project's share of your weekly account
-    quota (0 < x ≤ 100).
-  - `weeklyBudgetUSD` — a hard \$ cap. Tokens are priced per model from
-    `src/lib/pricing.ts` (opus / sonnet / haiku); unknown models fall back to
-    Sonnet pricing.
-- Setting both fields on one project is rejected with a clear error.
-- Projects not listed are **unlimited** (covered only by Claude Code's global
-  cap).
+Or from inside Claude Code:
 
-Projects are identified by cwd, not git root — if you open Claude Code at
-different paths for the same repo, they count as different projects.
+```
+/claude-usage-limiter:set 20%
+/claude-usage-limiter:set $50
+```
+
+- **Key** = the absolute path you open Claude Code at.
+- Each project picks **exactly one** of `weeklyPercent` *or* `weeklyBudgetUSD`.
+- `weeklyPercent` = cap on this project's share of your weekly account quota.
+- `weeklyBudgetUSD` = hard \$ cap (priced per model via `src/lib/pricing.ts`).
+- Projects not listed are unlimited (covered only by Claude Code's global cap).
+- Projects are keyed by cwd, not git root.
 
 ## Slash commands
 
 - `/claude-usage-limiter:status` — show account + per-project status this week.
-- `/claude-usage-limiter:set <value>` — set the current project's cap without
-  leaving Claude Code. Accepts `20%`, `$50`, or `50usd`. Writes
-  `config.json` atomically and keeps a `config.json.bak-<epoch>` backup.
-- `/claude-usage-limiter:install-statusline` — patch `settings.json` with the plugin
-  statusline command.
+- `/claude-usage-limiter:set <value>` — set the current project's cap. Accepts `20%`, `$50`, or `50usd`.
+- `/claude-usage-limiter:install-statusline` — (re)wire the plugin statusline into `settings.json`.
+
+The three commands above are always allowed through — you can never block
+yourself out of managing your own limits.
+
+## How it works
+
+1. **Statusline** reads Claude Code's `rate_limits` payload and writes it to
+   `~/.claude/usage-limiter/cache.json` every render.
+2. **UserPromptSubmit hook** runs before each prompt, scans
+   `~/.claude/projects/<cwd>/*.jsonl` for this project's tokens this week,
+   compares to the limit, and blocks via `{"decision":"block","reason":…}` if
+   over.
+3. **PreToolUse hook** catches mid-turn agentic overshoot. Emits
+   `hookSpecificOutput.permissionDecision = "deny"` with a "DO NOT retry"
+   reason so the model ends the turn cleanly after 1–3 adapt cycles.
+4. **SessionStart hook** auto-wires the statusline into `settings.json` on
+   first install and refreshes the path after plugin upgrades.
+
+Scans are incremental — per-file offsets live in `scan-cache.json`, so a
+heavy-user JSONL dir stays under ~50 ms per hook even past 100 MB.
+
+Full design rationale: [`docs/plans/2026-04-19-claude-usage-limiter-design.md`](docs/plans/2026-04-19-claude-usage-limiter-design.md).
+Smoke-test findings on the Claude Code plugin/hook schema: [`docs/plans/smoke-test-findings.md`](docs/plans/smoke-test-findings.md).
 
 ## Statusline
 
-Shows `{project}: X% / Y%` (or `$X.XX / $Y.YY` for USD-capped
-projects) with green/yellow/red thresholds at <80 / 80–95 / ≥95.
+Shows `{project}: X% / Y%` (or `$X.XX / $Y.YY`) with green/yellow/red at
+`<80 / 80–95 / ≥95`. Blank when the current project isn't configured.
 
 ## Requirements
 
-- Claude Code ≥ 2.1 (for the plugin system)
-- A Claude.ai Pro or Max subscription — `weeklyPercent` needs the
-  `rate_limits` payload, which is only emitted for subscribers.
-  `weeklyBudgetUSD` works without a subscription (project-local math).
+- Claude Code ≥ 2.1 (plugin system)
+- Claude.ai Pro or Max — `weeklyPercent` needs the `rate_limits` payload, which
+  is only emitted for subscribers. `weeklyBudgetUSD` works without.
 - Node.js ≥ 20
+
+## Troubleshooting
+
+**Hooks aren't firing after install.** Plugin hooks only register on
+*new* Claude Code sessions. Quit Claude Code fully and reopen.
+
+**Statusline shows stale values / wrong reset date.** Someone populated
+`cache.json` with fake data (eg. during testing). Clear it:
+`rm ~/.claude/usage-limiter/cache.json` and restart Claude Code — the
+statusline will repopulate on the next render.
+
+**I hit my own limit and can't unblock.** The three
+`/claude-usage-limiter:*` commands are always whitelisted. If that doesn't
+work, remove the config: `rm ~/.claude/usage-limiter/config.json`.
+
+**After upgrading the plugin, the statusline breaks.** SessionStart
+auto-refreshes the path, but you need a *new* session for it to run. If
+something went wrong run `/claude-usage-limiter:install-statusline` manually.
+
+**`CLAUDE_CONFIG_DIR` is set.** The plugin respects it and uses the same
+directory Claude Code uses.
 
 ## Develop
 
@@ -111,6 +133,9 @@ pnpm test
 pnpm run build
 pnpm e2e
 ```
+
+`plugin/bin/` is the distributed artifact and IS committed — marketplace
+installs copy the repo as-is. Rebuild before committing source changes.
 
 ## License
 
