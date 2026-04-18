@@ -88,9 +88,6 @@ yourself out of managing your own limits.
 Scans are incremental — per-file offsets live in `scan-cache.json`, so a
 heavy-user JSONL dir stays under ~50 ms per hook even past 100 MB.
 
-Full design rationale: [`docs/plans/2026-04-19-claude-usage-limiter-design.md`](docs/plans/2026-04-19-claude-usage-limiter-design.md).
-Smoke-test findings on the Claude Code plugin/hook schema: [`docs/plans/smoke-test-findings.md`](docs/plans/smoke-test-findings.md).
-
 ## Statusline
 
 Shows `{project}: X% / Y%` (or `$X.XX / $Y.YY`) with green/yellow/red at
