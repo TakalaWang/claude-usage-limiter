@@ -47,11 +47,7 @@ export interface LimitVerdict {
 
 function resolveProjectKey(cwd: string, config: UsageLimiterConfig): string | null {
   let real = cwd;
-  try {
-    real = realpathSync(cwd);
-  } catch {
-    // keep raw
-  }
+  try { real = realpathSync(cwd); } catch { /* keep raw */ }
   if (config.projects[real]) return real;
   if (config.projects[cwd]) return cwd;
   return null;
@@ -72,16 +68,7 @@ export interface CheckLimitOptions {
 }
 
 function emptyVerdict(reason: string): LimitVerdict {
-  return {
-    limited: false,
-    overshoot: false,
-    kind: "none",
-    usedPercent: 0,
-    limitPercent: 0,
-    usedUsd: 0,
-    limitUsd: 0,
-    reason,
-  };
+  return { limited: false, overshoot: false, kind: "none", usedPercent: 0, limitPercent: 0, usedUsd: 0, limitUsd: 0, reason };
 }
 
 export function checkLimit(cwd: string, opts: CheckLimitOptions = {}): LimitVerdict {
@@ -107,25 +94,14 @@ export function checkLimit(cwd: string, opts: CheckLimitOptions = {}): LimitVerd
   // USD cap: doesn't need rate_limits at all (project-local math).
   if (limit.weeklyBudgetUSD !== undefined) {
     const limitUsd = limit.weeklyBudgetUSD;
-    const project = scanP(cwd, start);
-    const usedUsd = project.costUsd;
+    const usedUsd = scanP(cwd, start).costUsd;
     const overshoot = usedUsd >= limitUsd;
     const reason = overshoot
       ? `Project ${label} exceeded its $${limitUsd.toFixed(2)} weekly budget ` +
         `(current $${usedUsd.toFixed(2)}). Resets at ${resetStr}. ` +
         `To adjust, edit ~/.claude/usage-limiter/config.json or run /usage-limiter:set.`
       : `under budget ($${usedUsd.toFixed(2)} of $${limitUsd.toFixed(2)})`;
-    return {
-      limited: true,
-      overshoot,
-      kind: "usd",
-      usedPercent: 0,
-      limitPercent: 0,
-      usedUsd,
-      limitUsd,
-      reason,
-      cacheStale: false,
-    };
+    return { limited: true, overshoot, kind: "usd", usedPercent: 0, limitPercent: 0, usedUsd, limitUsd, reason, cacheStale: false };
   }
 
   // Percent cap path (v0.1 semantics unchanged).
@@ -135,35 +111,17 @@ export function checkLimit(cwd: string, opts: CheckLimitOptions = {}): LimitVerd
   const sevenDayPct = cache?.rateLimits.sevenDay?.usedPercentage;
   if (sevenDayPct === undefined || sevenDayPct <= 0 || cacheStale) {
     return {
-      limited: true,
-      overshoot: false,
-      kind: "percent",
-      usedPercent: 0,
-      limitPercent,
-      usedUsd: 0,
-      limitUsd: 0,
-      reason: cacheStale
-        ? "cache missing/stale — allowing but usage unknown"
-        : "no sevenDay data in cache — allowing",
+      limited: true, overshoot: false, kind: "percent",
+      usedPercent: 0, limitPercent, usedUsd: 0, limitUsd: 0,
+      reason: cacheStale ? "cache missing/stale — allowing but usage unknown" : "no sevenDay data in cache — allowing",
       cacheStale: true,
     };
   }
 
   const projectTokens = scanP(cwd, start).tokens;
-  const { total } = scanA(start);
-  const accountTokens = total.tokens;
-
+  const accountTokens = scanA(start).total.tokens;
   if (accountTokens <= 0 || projectTokens <= 0) {
-    return {
-      limited: true,
-      overshoot: false,
-      kind: "percent",
-      usedPercent: 0,
-      limitPercent,
-      usedUsd: 0,
-      limitUsd: 0,
-      reason: "no usage recorded this week",
-    };
+    return { limited: true, overshoot: false, kind: "percent", usedPercent: 0, limitPercent, usedUsd: 0, limitUsd: 0, reason: "no usage recorded this week" };
   }
 
   const usedPercent = sevenDayPct * (projectTokens / accountTokens);
@@ -173,16 +131,5 @@ export function checkLimit(cwd: string, opts: CheckLimitOptions = {}): LimitVerd
       `(current ${usedPercent.toFixed(1)}%). Resets at ${resetStr}. ` +
       `To adjust, edit ~/.claude/usage-limiter/config.json or run /usage-limiter:set.`
     : `under limit (${usedPercent.toFixed(1)}% of ${limitPercent}%)`;
-
-  return {
-    limited: true,
-    overshoot,
-    kind: "percent",
-    usedPercent,
-    limitPercent,
-    usedUsd: 0,
-    limitUsd: 0,
-    reason,
-    cacheStale: false,
-  };
+  return { limited: true, overshoot, kind: "percent", usedPercent, limitPercent, usedUsd: 0, limitUsd: 0, reason, cacheStale: false };
 }
