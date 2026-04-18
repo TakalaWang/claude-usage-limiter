@@ -493,29 +493,24 @@ async function main() {
         logError("statusline:writeCache", err);
       }
     }
-    const sevenDayPct = input.rate_limits?.seven_day?.used_percentage;
     const label = projectLabel(cwd);
-    if (sevenDayPct === void 0) {
-      process.stdout.write(label);
-      return;
-    }
-    const acctColor = color(sevenDayPct);
-    const acctStr = `${acctColor}${sevenDayPct.toFixed(0)}%/w${RESET}`;
     if (!cwd) {
-      process.stdout.write(`acct: ${acctStr}`);
+      process.stdout.write(label);
       return;
     }
     const verdict = checkLimit(cwd);
     if (verdict.limited && verdict.kind === "percent" && verdict.limitPercent > 0 && !verdict.cacheStale) {
       const projColor = color(verdict.usedPercent / verdict.limitPercent * 100);
-      const projStr = `${projColor}${verdict.usedPercent.toFixed(1)}%${RESET} / ${verdict.limitPercent}%`;
-      process.stdout.write(`${label}: ${projStr} | acct: ${acctStr}`);
+      process.stdout.write(
+        `${label}: ${projColor}${verdict.usedPercent.toFixed(1)}%${RESET} / ${verdict.limitPercent}%`
+      );
     } else if (verdict.limited && verdict.kind === "usd" && verdict.limitUsd > 0) {
       const projColor = color(verdict.usedUsd / verdict.limitUsd * 100);
-      const projStr = `${projColor}$${verdict.usedUsd.toFixed(2)}${RESET} / $${verdict.limitUsd.toFixed(2)}`;
-      process.stdout.write(`${label}: ${projStr} | acct: ${acctStr}`);
+      process.stdout.write(
+        `${label}: ${projColor}$${verdict.usedUsd.toFixed(2)}${RESET} / $${verdict.limitUsd.toFixed(2)}`
+      );
     } else {
-      process.stdout.write(`${label} | acct: ${acctStr}`);
+      process.stdout.write(label);
     }
   } catch (err) {
     logError("statusline", err);

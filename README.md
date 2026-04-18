@@ -91,7 +91,7 @@ different paths for the same repo, they count as different projects.
 
 ## Statusline
 
-Shows `{project}: X% / Y% | acct: Z%/w` (or `$X.XX / $Y.YY` for USD-capped
+Shows `{project}: X% / Y%` (or `$X.XX / $Y.YY` for USD-capped
 projects) with green/yellow/red thresholds at <80 / 80–95 / ≥95.
 
 ## Requirements

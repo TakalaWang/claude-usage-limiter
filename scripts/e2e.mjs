@@ -128,7 +128,7 @@ try { rmSync(join(limiterDir, "pretooluse-throttle")); } catch { /* ignore */ }
     `plain=${JSON.stringify(plain)}`);
   assertOk("statusline shows project % / limit %", /%\s*\/\s*[\d.]+%/.test(plain),
     `plain=${JSON.stringify(plain)}`);
-  assertOk("statusline shows account %/w", /acct:\s*\d+%\/w/.test(plain),
+  assertOk("statusline does NOT show account weekly %", !/acct:\s*\d+%\/w/.test(plain),
     `plain=${JSON.stringify(plain)}`);
 }
 
