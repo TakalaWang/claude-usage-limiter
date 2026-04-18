@@ -41,13 +41,11 @@ automated smoke test covers.
 /plugin install github:TakalaWang/claude-usage-limiter
 ```
 
-Then wire up the statusline (plugins cannot auto-install statuslines):
-
-```
-/usage-limiter:install-statusline
-```
-
-This patches `~/.claude/settings.json` (with a timestamped backup).
+That's it. On the next session start, a `SessionStart` hook silently
+patches `~/.claude/settings.json` to wire up the statusline (with a
+timestamped backup). If you already have a `statusLine` configured,
+the hook leaves it alone and tells you — run
+`/usage-limiter:install-statusline` to override.
 
 ## Configure
 

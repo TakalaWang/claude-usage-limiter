@@ -9,6 +9,16 @@
   "license": "MIT",
   "keywords": ["usage", "limit", "budget", "quota"],
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/bin/hooks/session-start.js"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

@@ -12,6 +12,7 @@ const entries = [
   { in: "statusline/index.ts", out: "statusline.js" },
   { in: "hooks/user-prompt-submit.ts", out: "hooks/user-prompt-submit.js" },
   { in: "hooks/pre-tool-use.ts", out: "hooks/pre-tool-use.js" },
+  { in: "hooks/session-start.ts", out: "hooks/session-start.js" },
   { in: "commands/status.ts", out: "commands/status.js" },
   { in: "commands/set.ts", out: "commands/set.js" },
   { in: "commands/install-statusline.ts", out: "commands/install-statusline.js" },
