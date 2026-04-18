@@ -37,8 +37,12 @@ automated smoke test covers.
 
 ## Install
 
-```bash
-/plugin install github:TakalaWang/claude-usage-limiter
+Claude Code distributes plugins through marketplaces. Add this repo as a
+marketplace, then install the plugin from it:
+
+```
+/plugin marketplace add TakalaWang/claude-usage-limiter
+/plugin install claude-usage-limiter@takalawang
 ```
 
 That's it. On the next session start, a `SessionStart` hook silently
