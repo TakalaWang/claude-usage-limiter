@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-limiter",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Enforces per-project weekly Claude Code usage limits (% of account quota or USD budget).",
   "author": {
     "name": "Takala Wang"

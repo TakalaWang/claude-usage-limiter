@@ -7,10 +7,16 @@ import { SETTINGS_PATH } from "./paths.js";
 
 export type InstallResult =
   | { status: "installed"; command: string; backup?: string }
+  | { status: "refreshed"; from: string; to: string; backup?: string }
   | { status: "already-installed"; command: string }
   | { status: "other-present"; existing: string; suggested: string }
   | { status: "no-plugin-root" }
   | { status: "invalid-settings"; error: string };
+
+// Matches any prior install of our own statusline across versions/paths.
+// Lets SessionStart refresh settings.json when the plugin is reinstalled at
+// a new version dir without treating the stale path as "someone else's".
+const OWN_STATUSLINE_RE = /claude-usage-limiter[^\s'"]*\/bin\/statusline\.js/;
 
 export function resolvePluginRoot(): string | null {
   const env = process.env.CLAUDE_PLUGIN_ROOT;
@@ -49,12 +55,25 @@ export function wireStatusline(): InstallResult {
   }
 
   if (current.statusLine?.command) {
-    if (current.statusLine.command === command) {
+    const existing = current.statusLine.command;
+    if (existing === command) {
       return { status: "already-installed", command };
+    }
+    if (OWN_STATUSLINE_RE.test(existing)) {
+      // Stale install from an older version of this plugin — refresh silently.
+      let backup: string | undefined;
+      if (existsSync(SETTINGS_PATH)) {
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        backup = `${SETTINGS_PATH}.bak-${ts}`;
+        copyFileSync(SETTINGS_PATH, backup);
+      }
+      current.statusLine = { type: "command", command };
+      writeFileSync(SETTINGS_PATH, JSON.stringify(current, null, 2) + "\n");
+      return { status: "refreshed", from: existing, to: command, backup };
     }
     return {
       status: "other-present",
-      existing: current.statusLine.command,
+      existing,
       suggested: command,
     };
   }

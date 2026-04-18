@@ -1,9 +1,5 @@
 #!/usr/bin/env node
 
-// src/hooks/session-start.ts
-import { existsSync as existsSync2, writeFileSync as writeFileSync2, mkdirSync as mkdirSync3 } from "node:fs";
-import { join as join3 } from "node:path";
-
 // src/lib/errors.ts
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -38,6 +34,7 @@ function logError(context, err) {
 // src/lib/statusline-installer.ts
 import { copyFileSync, existsSync, mkdirSync as mkdirSync2, readFileSync, writeFileSync } from "node:fs";
 import { dirname as dirname2, join as join2, resolve } from "node:path";
+var OWN_STATUSLINE_RE = /claude-usage-limiter[^\s'"]*\/bin\/statusline\.js/;
 function resolvePluginRoot() {
   const env = process.env.CLAUDE_PLUGIN_ROOT;
   if (env && env.length > 0) return env;
@@ -64,12 +61,24 @@ function wireStatusline() {
     mkdirSync2(dirname2(SETTINGS_PATH), { recursive: true });
   }
   if (current.statusLine?.command) {
-    if (current.statusLine.command === command) {
+    const existing = current.statusLine.command;
+    if (existing === command) {
       return { status: "already-installed", command };
+    }
+    if (OWN_STATUSLINE_RE.test(existing)) {
+      let backup2;
+      if (existsSync(SETTINGS_PATH)) {
+        const ts = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+        backup2 = `${SETTINGS_PATH}.bak-${ts}`;
+        copyFileSync(SETTINGS_PATH, backup2);
+      }
+      current.statusLine = { type: "command", command };
+      writeFileSync(SETTINGS_PATH, JSON.stringify(current, null, 2) + "\n");
+      return { status: "refreshed", from: existing, to: command, backup: backup2 };
     }
     return {
       status: "other-present",
-      existing: current.statusLine.command,
+      existing,
       suggested: command
     };
   }
@@ -85,30 +94,29 @@ function wireStatusline() {
 }
 
 // src/hooks/session-start.ts
-var STATE_FILE = join3(USAGE_LIMITER_DIR, ".auto-install-done");
 function main() {
   try {
-    if (existsSync2(STATE_FILE)) return;
     const r = wireStatusline();
-    try {
-      mkdirSync3(USAGE_LIMITER_DIR, { recursive: true });
-      writeFileSync2(STATE_FILE, (/* @__PURE__ */ new Date()).toISOString() + "\n");
-    } catch {
-    }
     switch (r.status) {
       case "installed":
         process.stderr.write(
           "[usage-limiter] wired statusline into settings.json on first session.\n"
         );
         break;
+      case "refreshed":
+        process.stderr.write(
+          `[usage-limiter] refreshed statusline path to the current install.
+`
+        );
+        break;
       case "other-present":
         process.stderr.write(
-          "[usage-limiter] existing statusLine detected; leaving it alone. Run /usage-limiter:install-statusline to override.\n"
+          "[usage-limiter] existing non-plugin statusLine detected; leaving it alone. Run /claude-usage-limiter:install-statusline to override.\n"
         );
         break;
       case "invalid-settings":
         process.stderr.write(
-          "[usage-limiter] ~/.claude/settings.json is not valid JSON; cannot auto-install. Fix the file and run /usage-limiter:install-statusline.\n"
+          "[usage-limiter] ~/.claude/settings.json is not valid JSON; cannot auto-install. Fix the file and run /claude-usage-limiter:install-statusline.\n"
         );
         break;
     }

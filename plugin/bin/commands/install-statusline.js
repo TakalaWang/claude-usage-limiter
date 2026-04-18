@@ -34,6 +34,7 @@ function logError(context, err) {
 // src/lib/statusline-installer.ts
 import { copyFileSync, existsSync, mkdirSync as mkdirSync2, readFileSync, writeFileSync } from "node:fs";
 import { dirname as dirname2, join as join2, resolve } from "node:path";
+var OWN_STATUSLINE_RE = /claude-usage-limiter[^\s'"]*\/bin\/statusline\.js/;
 function resolvePluginRoot() {
   const env = process.env.CLAUDE_PLUGIN_ROOT;
   if (env && env.length > 0) return env;
@@ -60,12 +61,24 @@ function wireStatusline() {
     mkdirSync2(dirname2(SETTINGS_PATH), { recursive: true });
   }
   if (current.statusLine?.command) {
-    if (current.statusLine.command === command) {
+    const existing = current.statusLine.command;
+    if (existing === command) {
       return { status: "already-installed", command };
+    }
+    if (OWN_STATUSLINE_RE.test(existing)) {
+      let backup2;
+      if (existsSync(SETTINGS_PATH)) {
+        const ts = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+        backup2 = `${SETTINGS_PATH}.bak-${ts}`;
+        copyFileSync(SETTINGS_PATH, backup2);
+      }
+      current.statusLine = { type: "command", command };
+      writeFileSync(SETTINGS_PATH, JSON.stringify(current, null, 2) + "\n");
+      return { status: "refreshed", from: existing, to: command, backup: backup2 };
     }
     return {
       status: "other-present",
-      existing: current.statusLine.command,
+      existing,
       suggested: command
     };
   }
