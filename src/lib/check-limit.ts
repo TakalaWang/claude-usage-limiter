@@ -14,7 +14,17 @@ import { realpathSync } from "node:fs";
 import { readCache, type UsageCache } from "./cache.js";
 import { loadConfig, type UsageLimiterConfig } from "./config.js";
 import { scanAllProjectsUsage, scanProjectUsage, type ProjectUsage } from "./scan.js";
+import { scanProjectUsageCached } from "./scan-cache.js";
 import { encodeCwd } from "./paths.js";
+
+// Use incremental cache for the per-project scan; full-scan fallback on throw.
+function scanProjectWithCache(cwd: string, start: number): ProjectUsage {
+  try {
+    return scanProjectUsageCached(cwd, start);
+  } catch {
+    return scanProjectUsage(cwd, start);
+  }
+}
 
 const SEVEN_DAYS_SEC = 7 * 24 * 60 * 60;
 const CACHE_STALE_SEC = 10 * 60;
@@ -87,7 +97,7 @@ export function checkLimit(cwd: string, opts: CheckLimitOptions = {}): LimitVerd
   const cacheStale =
     !cache || !cache.updatedAt || now - cache.updatedAt > CACHE_STALE_SEC;
   const start = windowStart(cache);
-  const scanP = opts.scanProject ?? scanProjectUsage;
+  const scanP = opts.scanProject ?? scanProjectWithCache;
   const scanA = opts.scanAll ?? scanAllProjectsUsage;
 
   const resetAt = cache?.rateLimits.sevenDay?.resetsAt;
