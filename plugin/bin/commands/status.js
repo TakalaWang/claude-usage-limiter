@@ -211,6 +211,7 @@ var RED = "\x1B[31m";
 var BOLD = "\x1B[1m";
 var DIM = "\x1B[2m";
 var SEVEN_DAYS_SEC = 7 * 24 * 60 * 60;
+var CACHE_STALE_SEC = 10 * 60;
 function color(pct) {
   if (pct >= 95) return RED;
   if (pct >= 80) return YELLOW;
@@ -218,13 +219,19 @@ function color(pct) {
 }
 function formatResetsIn(resetsAt, now) {
   const diff = resetsAt - now;
-  if (diff <= 0) return "now";
+  if (diff <= 0) return "expired";
   const d = Math.floor(diff / 86400);
   const h = Math.floor(diff % 86400 / 3600);
   return `${d}d ${h}h`;
 }
 function formatIso(epoch) {
   return new Date(epoch * 1e3).toISOString().replace("T", " ").slice(0, 16);
+}
+function fmtPct(p) {
+  if (p <= 0) return "0%";
+  if (p >= 1) return `${p.toFixed(1)}%`;
+  if (p >= 0.01) return `${p.toFixed(3)}%`;
+  return `${p.toExponential(1)}%`;
 }
 function main() {
   try {
@@ -234,11 +241,19 @@ function main() {
     const out = [];
     out.push(`${BOLD}Claude Usage Limiter \u2014 weekly status${RESET}`);
     const sevenDay = cache?.rateLimits.sevenDay;
+    const stale = !cache || !cache.updatedAt || now - cache.updatedAt > CACHE_STALE_SEC;
+    const expiredReset = sevenDay ? sevenDay.resetsAt <= now : false;
     if (sevenDay) {
       const c = color(sevenDay.usedPercentage);
       out.push(
         `Account: ${c}${sevenDay.usedPercentage.toFixed(1)}%${RESET} / 100%   resets ${formatIso(sevenDay.resetsAt)} (${formatResetsIn(sevenDay.resetsAt, now)})`
       );
+      if (stale || expiredReset) {
+        const age = cache?.updatedAt ? `${Math.floor((now - cache.updatedAt) / 60)}m old` : "unknown age";
+        out.push(
+          `  ${YELLOW}\u26A0 cache is stale (${age}${expiredReset ? ", reset time has passed" : ""}) \u2014 rm ~/.claude/usage-limiter/cache.json and restart Claude Code${RESET}`
+        );
+      }
     } else {
       out.push(`Account: ${DIM}(no rate_limits cached \u2014 open Claude Code to refresh)${RESET}`);
     }
@@ -259,15 +274,18 @@ function main() {
           const limitUsd = limit.weeklyBudgetUSD;
           const ratioPct = limitUsd > 0 ? proj.costUsd / limitUsd * 100 : 0;
           const c = color(ratioPct);
+          const flag = ratioPct >= 100 ? ` ${RED}${BOLD}\u26D4 OVER${RESET}` : "";
           out.push(
-            `    ${c}$${proj.costUsd.toFixed(2)} / $${limitUsd.toFixed(2)}${RESET}   (${proj.messages} assistant messages)`
+            `    ${c}$${proj.costUsd.toFixed(2)} / $${limitUsd.toFixed(2)}${RESET}${flag}   (${proj.messages} assistant messages)`
           );
         } else if (limit.weeklyPercent !== void 0) {
           const limitPct = limit.weeklyPercent;
           const pct = total.tokens > 0 && accountPct > 0 ? accountPct * (proj.tokens / total.tokens) : 0;
-          const c = limitPct > 0 ? color(pct / limitPct * 100) : DIM;
+          const ratioPct = limitPct > 0 ? pct / limitPct * 100 : 0;
+          const c = limitPct > 0 ? color(ratioPct) : DIM;
+          const flag = ratioPct >= 100 ? ` ${RED}${BOLD}\u26D4 OVER${RESET}` : "";
           out.push(
-            `    ${c}${pct.toFixed(1)}% / ${limitPct}%${RESET}   ($${proj.costUsd.toFixed(2)}, ${proj.messages} assistant messages)`
+            `    ${c}${fmtPct(pct)} / ${fmtPct(limitPct)}${RESET}${flag}   ($${proj.costUsd.toFixed(2)}, ${proj.messages} assistant messages)`
           );
         }
       }
