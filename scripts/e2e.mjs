@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // End-to-end smoke test.
-// Boots a throwaway HOME dir, fabricates config + cache + JSONL, and pipes
-// realistic stdin payloads into the built bin/ entry points. Assertions check
-// stdout shape for both hooks and the statusline. Invoke via `pnpm e2e` after
-// `pnpm run build`.
+// Boots a throwaway claude-config dir (via CLAUDE_CONFIG_DIR), fabricates
+// config + cache + JSONL, and pipes realistic stdin payloads into the built
+// bin/ entry points. Assertions check stdout shape for both hooks and the
+// statusline. Invoke via `pnpm e2e` after `pnpm run build`.
 
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
@@ -24,9 +24,9 @@ for (const p of [
 
 // Sandbox --------------------------------------------------------------------
 const sandbox = mkdtempSync(join(tmpdir(), `claude-test-${Date.now()}-`));
-const HOME = sandbox;
-const limiterDir = join(HOME, ".claude", "usage-limiter");
-const projectsDir = join(HOME, ".claude", "projects");
+const CLAUDE_CONFIG_DIR = sandbox;
+const limiterDir = join(CLAUDE_CONFIG_DIR, "usage-limiter");
+const projectsDir = join(CLAUDE_CONFIG_DIR, "projects");
 mkdirSync(limiterDir, { recursive: true });
 mkdirSync(projectsDir, { recursive: true });
 
@@ -59,13 +59,13 @@ for (let i = 0; i < 5; i++) {
   }));
 }
 writeFileSync(join(projectJsonlDir, "fake.jsonl"), lines.join("\n") + "\n");
-log(`sandbox HOME = ${HOME}`);
+log(`sandbox CLAUDE_CONFIG_DIR = ${CLAUDE_CONFIG_DIR}`);
 
 // Helpers --------------------------------------------------------------------
 function pipe(script, payload) {
   const res = spawnSync("node", [script], {
     input: typeof payload === "string" ? payload : JSON.stringify(payload),
-    env: { ...process.env, HOME }, encoding: "utf8", timeout: 10_000,
+    env: { ...process.env, CLAUDE_CONFIG_DIR }, encoding: "utf8", timeout: 10_000,
   });
   if (res.error) fail(`spawn failed: ${res.error.message}`);
   return res;

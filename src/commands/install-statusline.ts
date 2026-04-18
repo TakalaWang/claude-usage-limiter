@@ -2,10 +2,8 @@
 // Backs up the existing file. Bails if statusLine already set (user must re-run to overwrite).
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { homedir } from "node:os";
 import { logError } from "../lib/errors.js";
-
-const SETTINGS_PATH = join(homedir(), ".claude", "settings.json");
+import { SETTINGS_PATH } from "../lib/paths.js";
 
 interface ClaudeSettings {
   statusLine?: { type?: string; command?: string };
