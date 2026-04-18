@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "claude-usage-limiter",
-      "source": ".",
+      "source": "./",
       "description": "Per-project weekly Claude Code usage limits (% of quota or USD budget)."
     }
   ]
