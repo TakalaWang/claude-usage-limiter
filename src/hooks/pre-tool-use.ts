@@ -32,7 +32,13 @@ interface PreToolUsePayload {
   session_id?: string;
   hook_event_name?: string;
   tool_name?: string;
+  tool_input?: { command?: string; [k: string]: unknown };
 }
+
+// Whitelist: never block a Bash tool call that invokes one of our own bin/
+// scripts — otherwise /claude-usage-limiter:set can't be used to unblock
+// yourself once you're over limit.
+const OWN_BIN_RE = /claude-usage-limiter[^\s'"]*\/bin\/(commands|hooks)\//;
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
@@ -85,6 +91,10 @@ export async function main(): Promise<void> {
     const payload = JSON.parse(raw) as PreToolUsePayload;
     const cwd = payload.cwd;
     if (!cwd) process.exit(0);
+
+    if (payload.tool_name === "Bash" && typeof payload.tool_input?.command === "string") {
+      if (OWN_BIN_RE.test(payload.tool_input.command)) process.exit(0);
+    }
 
     const now = Date.now();
     if (throttled(now)) process.exit(0);

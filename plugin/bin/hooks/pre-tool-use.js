@@ -446,6 +446,7 @@ import { join as join4 } from "node:path";
 var THROTTLE_PATH = join4(USAGE_LIMITER_DIR, "pretooluse-throttle");
 var THROTTLE_WINDOW_MS = 2e3;
 var lastCheckMs = 0;
+var OWN_BIN_RE = /claude-usage-limiter[^\s'"]*\/bin\/(commands|hooks)\//;
 async function readStdin() {
   const chunks = [];
   for await (const chunk of process.stdin) {
@@ -487,6 +488,9 @@ async function main() {
     const payload = JSON.parse(raw);
     const cwd = payload.cwd;
     if (!cwd) process.exit(0);
+    if (payload.tool_name === "Bash" && typeof payload.tool_input?.command === "string") {
+      if (OWN_BIN_RE.test(payload.tool_input.command)) process.exit(0);
+    }
     const now = Date.now();
     if (throttled(now)) process.exit(0);
     stampThrottle(now);

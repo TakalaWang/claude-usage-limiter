@@ -9,7 +9,13 @@ interface UserPromptSubmitPayload {
   cwd?: string;
   session_id?: string;
   hook_event_name?: string;
+  prompt?: string;
 }
+
+// Whitelist: never block our own management slash commands, even when over
+// limit. Otherwise the user can't adjust their own config from inside a
+// blocked session.
+const OWN_COMMAND_RE = /^\s*\/claude-usage-limiter:(set|status|install-statusline)\b/;
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
@@ -26,6 +32,8 @@ export async function main(): Promise<void> {
     const payload = JSON.parse(raw) as UserPromptSubmitPayload;
     const cwd = payload.cwd;
     if (!cwd) process.exit(0);
+
+    if (payload.prompt && OWN_COMMAND_RE.test(payload.prompt)) process.exit(0);
 
     const verdict = checkLimit(cwd);
     if (verdict.overshoot) {

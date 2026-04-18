@@ -438,6 +438,7 @@ function checkLimit(cwd, opts = {}) {
 }
 
 // src/hooks/user-prompt-submit.ts
+var OWN_COMMAND_RE = /^\s*\/claude-usage-limiter:(set|status|install-statusline)\b/;
 async function readStdin() {
   const chunks = [];
   for await (const chunk of process.stdin) {
@@ -452,6 +453,7 @@ async function main() {
     const payload = JSON.parse(raw);
     const cwd = payload.cwd;
     if (!cwd) process.exit(0);
+    if (payload.prompt && OWN_COMMAND_RE.test(payload.prompt)) process.exit(0);
     const verdict = checkLimit(cwd);
     if (verdict.overshoot) {
       const out = {
