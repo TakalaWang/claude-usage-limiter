@@ -12,7 +12,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const BIN = join(ROOT, "bin");
+const BIN = join(ROOT, "plugin", "bin");
 const log = (m) => process.stdout.write(`[e2e] ${m}\n`);
 const fail = (m) => { process.stderr.write(`[e2e] FAIL: ${m}\n`); process.exit(1); };
 

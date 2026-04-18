@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 const SRC = join(ROOT, "src");
-const OUT = join(ROOT, "bin");
+const OUT = join(ROOT, "plugin", "bin");
 
 const entries = [
   { in: "statusline/index.ts", out: "statusline.js" },
